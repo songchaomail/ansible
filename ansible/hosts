@@ -1,0 +1,1 @@
+login1 ansible_ssh_host=202.118.64.66 ansible_ssh_port=22
