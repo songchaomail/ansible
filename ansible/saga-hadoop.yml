@@ -1,0 +1,116 @@
+- name: install saga-hadoop 
+  hosts: login1
+  vars:
+    install_path: /public/home/user1/saga-hadoop
+    prerequisites: 
+      - tabulate-0.8.2 
+      - six-1.11.0
+      - kazoo-2.5.0
+      - pykafka-2.7.0
+      - parse-1.8.4
+      - setproctitle-1.1.10
+      - netifaces-0.10.4
+      - colorama-0.3.9
+      - future-0.16.0
+      - radical.utils-0.47.5
+      - setuptools-git-1.2
+      - python-hostlist-1.17
+      - argparse-1.4.0
+      - uuid-1.30
+      - certifi-2018.4.16
+      - urllib3-1.23
+      - idna-2.7
+      - chardet-3.0.4
+      - requests-2.19.0
+      - apache-libcloud-2.3.0
+      - ez_setup-0.9
+      - python-nmap-0.6.1
+     
+  tasks:
+    - name: create install directory
+      file: path="{{install_path}}" state=directory
+
+    - name: untar prerequisites
+      unarchive:
+        src: "../{{item}}.tar.gz"
+        dest: "{{install_path}}"
+      with_items: "{{prerequisites}}"
+
+    - name: unzip virturalenv setuptools pip saga-python saga-hadoop
+      unarchive:
+        src: "../{{item}}.zip"
+        dest: "{{install_path}}"
+      with_items:
+        - virtualenv-master
+        - setuptools-39.2.0
+        - pip-master
+        - saga-python-0.47.6
+        - SAGA-Hadoop-master
+    
+    - name: untar python
+      unarchive:
+        src: "../{{item}}.tgz"
+        dest: "{{install_path}}"
+      with_items:
+        - Python-2.7.15
+
+    - name: untar wheel jdk
+      unarchive:
+        src: "../{{item}}.tar.gz"
+        dest: "{{install_path}}"
+      with_items:
+        - wheel-0.31.1
+        - jdk-10.0.1_linux-x64_bin
+
+    - name: configure python
+      shell: ./configure --prefix={{install_path}}/python2.7
+      args:
+        chdir: "{{install_path}}/Python-2.7.15"
+
+    - name: make python
+      make: 
+        chdir: "{{install_path}}/Python-2.7.15"
+
+    - name: install python
+      make:
+        chdir: "{{install_path}}/Python-2.7.15"
+        target: install
+
+    - name: set python path
+      shell: /bin/echo {{ item }} >> ~/.bashrc && source ~/.bashrc
+      with_items:
+        - export PATH={{install_path}}/python2.7/bin:$PATH
+
+    - name: construct virtualenv
+      shell: python virtualenv-master/virtualenv.py --extra-search-dir=setuptools-39.2.0 --extra-search-dir=wheel-0.31.1 --extra-search-dir=pip-10.0.1 --never-download ve && /bin/echo  {{ item }} >> ~/.bashrc
+      args:
+        chdir: "{{install_path}}"
+      with_items:
+        - source {{install_path}}/ve/bin/activate 
+
+    - name: install prerequisites
+      shell: source ../ve/bin/activate && python setup.py install --record installed.files
+      args:
+        chdir: "{{install_path}}/{{item}}"
+      with_items: "{{prerequisites}}"
+
+    - name: install saga-python saga-hadoop
+      shell: source ../ve/bin/activate && python setup.py install --record installed.files
+      args:
+        chdir: "{{install_path}}/{{item}}"
+      with_items:
+        - saga-python-0.47.6
+        - SAGA-Hadoop-master
+
+    - name: jdk variable configuration
+      shell: /bin/echo {{ item }} >> ~/.bashrc; source ~/.bashrc
+      with_items:
+        - export JAVA_HOME={{install_path}}/jdk-10.0.1
+        - export CLASSPATH=.:$JAVA_HOME/lib
+        - export PATH=$JAVA_HOME/bin:$PATH
+ 
+    - name: create work directory in ve
+      file: path="{{install_path}}/ve/work" state=directory
+
+    - name: copy hadoop to work directory
+      copy: src=../hadoop-2.7.1.tar.gz dest={{install_path}}/ve/work/hadoop.tar.gz 
